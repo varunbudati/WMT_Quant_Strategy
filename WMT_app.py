@@ -81,11 +81,11 @@ def plot_results_with_future(df, historical_predictions, future_predictions, fut
     return fig
 
 def main():
-    st.title('Walmart Stock Analysis and Prediction App')
-    
+    st.title('Walmart Stock Analysis and Prediction for Pitch SEED')
+    st.warning("Disclaimer: This is purely Quantitative and only done as an experiment")
     st.sidebar.header('User Input Parameters')
-    start_date = st.sidebar.date_input("Start Date", pd.to_datetime("2020-01-01"))
-    end_date = st.sidebar.date_input("End Date", pd.to_datetime("2023-12-31"))
+    start_date = st.sidebar.date_input("Start Date", pd.to_datetime("2023-01-01"))
+    end_date = st.sidebar.date_input("End Date", pd.to_datetime("2024-12-31"))
     future_days = st.sidebar.slider("Days to predict in the future", 1, 60, 30)
     
     if start_date < end_date:
