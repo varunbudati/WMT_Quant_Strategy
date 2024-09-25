@@ -6,6 +6,7 @@ from sklearn.model_selection import train_test_split
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.metrics import mean_squared_error
 import matplotlib.pyplot as plt
+from datetime import timedelta
 
 def fetch_stock_data(ticker, start_date, end_date):
     stock = yf.Ticker(ticker)
@@ -37,6 +38,12 @@ def train_model(X, y):
     model = RandomForestRegressor(n_estimators=100, random_state=42)
     model.fit(X_train, y_train)
     return model, X_test, y_test
+
+def evaluate_model(model, X_test, y_test):
+    predictions = model.predict(X_test)
+    mse = mean_squared_error(y_test, predictions)
+    rmse = np.sqrt(mse)
+    return rmse, predictions
 
 def predict_future(model, last_data, days=30):
     future_predictions = []
