@@ -32,6 +32,28 @@ def prepare_features(df):
     
     return X, y
 
+def train_model(X, y):
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+    model = RandomForestRegressor(n_estimators=100, random_state=42)
+    model.fit(X_train, y_train)
+    return model, X_test, y_test
+
+def evaluate_model(model, X_test, y_test):
+    predictions = model.predict(X_test)
+    mse = mean_squared_error(y_test, predictions)
+    rmse = np.sqrt(mse)
+    return rmse, predictions
+
+def plot_results(df, predictions):
+    fig, ax = plt.subplots(figsize=(12, 6))
+    ax.plot(df.index[-len(predictions):], df['Close'][-len(predictions):], label='Actual Price')
+    ax.plot(df.index[-len(predictions):], predictions, label='Predicted Price')
+    ax.set_title('Walmart Stock Price: Actual vs Predicted')
+    ax.set_xlabel('Date')
+    ax.set_ylabel('Price')
+    ax.legend()
+    return fig
+
 def main():
     st.title('Walmart Stock Analysis App')
     
