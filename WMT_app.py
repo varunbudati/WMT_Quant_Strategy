@@ -48,12 +48,9 @@ def evaluate_model(model, X_test, y_test):
 def predict_future(model, last_data, days=30):
     future_predictions = []
     current_data = last_data.copy()
-
     for _ in range(days):
         prediction = model.predict(current_data.reshape(1, -1))[0]
         future_predictions.append(prediction)
-        
-        # Update the current data for the next prediction
         current_data = np.roll(current_data, -1)
         current_data[-1] = prediction
 
@@ -61,20 +58,13 @@ def predict_future(model, last_data, days=30):
 
 def plot_results_with_future(df, historical_predictions, future_predictions, future_dates):
     fig, ax = plt.subplots(figsize=(15, 8))
-    
-    # Plot historical data
     ax.plot(df.index, df['Close'], label='Actual Price', color='blue')
     ax.plot(df.index[-len(historical_predictions):], historical_predictions, label='Historical Predictions', color='green')
-    
-    # Plot future predictions
     ax.plot(future_dates, future_predictions, label='Future Predictions', color='red', linestyle='--')
-    
     ax.set_title('Walmart Stock Price: Historical and Future Predictions')
     ax.set_xlabel('Date')
     ax.set_ylabel('Price')
     ax.legend()
-    
-    # Add a vertical line to separate historical data from future predictions
     ax.axvline(x=df.index[-1], color='gray', linestyle='--')
     ax.text(df.index[-1], ax.get_ylim()[1], 'Today', ha='right', va='top')
     
@@ -87,59 +77,37 @@ def main():
     start_date = st.sidebar.date_input("Start Date", pd.to_datetime("2023-01-01"))
     end_date = st.sidebar.date_input("End Date", pd.to_datetime("2024-12-31"))
     future_days = st.sidebar.slider("Days to predict in the future", 1, 60, 30)
-    
     if start_date < end_date:
         st.sidebar.success('Start date: `%s`\n\nEnd date:`%s`' % (start_date, end_date))
     else:
         st.sidebar.error('Error: End date must fall after start date.')
-    
-    # Fetch Walmart stock data
-    with st.spinner('Fetching stock data...'):
+    with st.spinner('Fetching stock data...'):  # Fetch Walmart stock data
         walmart_df = fetch_stock_data('WMT', start_date, end_date)
-    
-    # Calculate technical indicators
     walmart_df = calculate_indicators(walmart_df)
-    
-    # Prepare features and target variable
     X, y = prepare_features(walmart_df)
-    
-    # Check if we have enough data
     if len(X) < 10:
         st.error("Not enough valid data points. Please select a larger date range.")
         return
-    
-    # Train the model
     with st.spinner('Training the model...'):
         model, X_test, y_test = train_model(X, y)
-    
-    # Evaluate the model
     rmse, historical_predictions = evaluate_model(model, X_test, y_test)
     st.write(f"Root Mean Squared Error: {rmse:.2f}")
-    
-    # Make future predictions
     last_known_data = X.iloc[-1].values
     future_predictions = predict_future(model, last_known_data, days=future_days)
     future_dates = pd.date_range(start=walmart_df.index[-1] + timedelta(days=1), periods=future_days)
-    
-    # Plot results
     st.subheader('Historical Data and Future Predictions')
     fig = plot_results_with_future(walmart_df, historical_predictions, future_predictions, future_dates)
     st.pyplot(fig)
-    
-    # Display recent data and future predictions
     st.subheader('Recent Stock Data and Future Predictions')
     recent_data = walmart_df.tail()
     future_df = pd.DataFrame({'Date': future_dates, 'Predicted Close': future_predictions})
     future_df.set_index('Date', inplace=True)
     combined_df = pd.concat([recent_data, future_df])
     st.dataframe(combined_df)
-    
-    # Feature importance
     st.subheader('Feature Importance')
     feature_importance = pd.DataFrame({'feature': X.columns, 'importance': model.feature_importances_})
     feature_importance = feature_importance.sort_values('importance', ascending=False)
     st.bar_chart(feature_importance.set_index('feature'))
-    
     st.warning("Disclaimer: These predictions are for educational purposes only. Stock market prediction is inherently uncertain and these results should not be used for actual trading decisions.")
 
 if __name__ == "__main__":
