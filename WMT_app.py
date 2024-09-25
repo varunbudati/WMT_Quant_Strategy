@@ -25,8 +25,6 @@ def prepare_features(df):
     features = ['Open', 'High', 'Low', 'Close', 'Volume', 'SMA_50', 'SMA_200', 'Volatility']
     X = df[features]
     y = df['Target']
-    
-    # Remove rows with NaN values
     valid_data = X.notna().all(axis=1) & y.notna()
     X = X[valid_data]
     y = y[valid_data]
