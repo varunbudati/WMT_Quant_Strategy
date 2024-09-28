@@ -38,7 +38,6 @@ def prepare_features(df, sentiment_score, interest_rate, economic_growth):
     X = X[valid_data]
     y = y[valid_data]
     
-    # Add new factors as features
     X['Sentiment'] = sentiment_score
     X['Interest_Rate'] = interest_rate
     X['Economic_Growth'] = economic_growth
@@ -140,7 +139,6 @@ def main():
     st.warning("Disclaimer: This is purely Quantitative and only done as an experiment")
     st.sidebar.header('User Input Parameters')
 
-    # Define default values
     default_start_date = pd.to_datetime("2023-01-01")
     default_end_date = pd.to_datetime("2024-12-31")
     default_future_days = 30
@@ -149,13 +147,11 @@ def main():
     default_sentiment_score = 0.0
     default_interest_rate = 2.0
     default_economic_growth = 2.0
-    default_confidence_level = 1.0  # Default confidence level (1 standard deviation)
+    default_confidence_level = 1.0  #(1 standard deviation)
 
-    # Initialize session state for widget keys if not exists
     if 'widget_key' not in st.session_state:
         st.session_state.widget_key = str(uuid.uuid4())
 
-    # Add reset button
     if st.sidebar.button('Reset to Defaults'):
         st.session_state.start_date = default_start_date
         st.session_state.end_date = default_end_date
