@@ -13,21 +13,30 @@ def fetch_stock_data(ticker, start_date, end_date):
     df = stock.history(start=start_date, end=end_date)
     return df
 
-def calculate_indicators(df):
+def calculate_indicators(df, volatility_window, rsi_window):
     df['SMA_50'] = df['Close'].rolling(window=50).mean()
     df['SMA_200'] = df['Close'].rolling(window=200).mean()
     df['Daily_Return'] = df['Close'].pct_change()
-    df['Volatility'] = df['Daily_Return'].rolling(window=20).std() * np.sqrt(252)
+    df['Volatility'] = df['Daily_Return'].rolling(window=volatility_window).std() * np.sqrt(252)
+    
+    # Calculate RSI
+    delta = df['Close'].diff()
+    gain = (delta.where(delta > 0, 0)).rolling(window=rsi_window).mean()
+    loss = (-delta.where(delta < 0, 0)).rolling(window=rsi_window).mean()
+    rs = gain / loss
+    df['RSI'] = 100 - (100 / (1 + rs))
+    
     return df
 
-def prepare_features(df):
+def prepare_features(df, sentiment_score):
     df['Target'] = df['Close'].shift(-1)
-    features = ['Open', 'High', 'Low', 'Close', 'Volume', 'SMA_50', 'SMA_200', 'Volatility']
+    features = ['Open', 'High', 'Low', 'Close', 'Volume', 'SMA_50', 'SMA_200', 'Volatility', 'RSI']
     X = df[features]
     y = df['Target']
     valid_data = X.notna().all(axis=1) & y.notna()
     X = X[valid_data]
     y = y[valid_data]
+    X['Sentiment'] = sentiment_score
     
     return X, y
 
@@ -75,37 +84,53 @@ def main():
     start_date = st.sidebar.date_input("Start Date", pd.to_datetime("2023-01-01"))
     end_date = st.sidebar.date_input("End Date", pd.to_datetime("2024-12-31"))
     future_days = st.sidebar.slider("Days to predict in the future", 1, 60, 30)
+    volatility_window = st.sidebar.slider("Volatility Window", 5, 50, 20)
+    rsi_window = st.sidebar.slider("RSI Window", 5, 30, 14)
+    sentiment_score = st.sidebar.slider("Market Sentiment (-1 to 1)", -1.0, 1.0, 0.0, 0.1)
+    interest_rate = st.sidebar.slider("Interest Rate (%)", 0.0, 10.0, 2.0, 0.1)
+    economic_growth = st.sidebar.slider("Economic Growth (%)", -5.0, 10.0, 2.0, 0.1)
+    
     if start_date < end_date:
         st.sidebar.success('Start date: `%s`\n\nEnd date:`%s`' % (start_date, end_date))
     else:
         st.sidebar.error('Error: End date must fall after start date.')
-    with st.spinner('Fetching stock data...'):  # Fetch Walmart stock data
+    
+    with st.spinner('Fetching stock data...'):
         walmart_df = fetch_stock_data('WMT', start_date, end_date)
-    walmart_df = calculate_indicators(walmart_df)
-    X, y = prepare_features(walmart_df)
+    
+    walmart_df = calculate_indicators(walmart_df, volatility_window, rsi_window)
+    X, y = prepare_features(walmart_df, sentiment_score)
+    
     if len(X) < 10:
         st.error("Not enough valid data points. Please select a larger date range.")
         return
+    
     with st.spinner('Training the model...'):
         model, X_test, y_test = train_model(X, y)
+    
     rmse, historical_predictions = evaluate_model(model, X_test, y_test)
     st.write(f"Root Mean Squared Error: {rmse:.2f}")
+    
     last_known_data = X.iloc[-1].values
     future_predictions = predict_future(model, last_known_data, days=future_days)
     future_dates = pd.date_range(start=walmart_df.index[-1] + timedelta(days=1), periods=future_days)
+    
     st.subheader('Historical Data and Future Predictions')
     fig = plot_results_with_future(walmart_df, historical_predictions, future_predictions, future_dates)
     st.pyplot(fig)
+    
     st.subheader('Recent Stock Data and Future Predictions')
     recent_data = walmart_df.tail()
     future_df = pd.DataFrame({'Date': future_dates, 'Predicted Close': future_predictions})
     future_df.set_index('Date', inplace=True)
     combined_df = pd.concat([recent_data, future_df])
     st.dataframe(combined_df)
+    
     st.subheader('Feature Importance')
     feature_importance = pd.DataFrame({'feature': X.columns, 'importance': model.feature_importances_})
     feature_importance = feature_importance.sort_values('importance', ascending=False)
     st.bar_chart(feature_importance.set_index('feature'))
+    
     st.warning("Disclaimer: These predictions are for educational purposes only. Stock market prediction is inherently uncertain and these results should not be used for actual trading decisions.")
 
 if __name__ == "__main__":
