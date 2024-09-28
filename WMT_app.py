@@ -7,6 +7,7 @@ from sklearn.ensemble import RandomForestRegressor
 from sklearn.metrics import mean_squared_error
 import matplotlib.pyplot as plt
 from datetime import timedelta
+import uuid
 
 def fetch_stock_data(ticker, start_date, end_date):
     stock = yf.Ticker(ticker)
@@ -108,6 +109,10 @@ def main():
     default_interest_rate = 2.0
     default_economic_growth = 2.0
 
+    # Initialize session state for widget keys if not exists
+    if 'widget_key' not in st.session_state:
+        st.session_state.widget_key = str(uuid.uuid4())
+
     # Add reset button
     if st.sidebar.button('Reset to Defaults'):
         st.session_state.start_date = default_start_date
@@ -118,23 +123,38 @@ def main():
         st.session_state.sentiment_score = default_sentiment_score
         st.session_state.interest_rate = default_interest_rate
         st.session_state.economic_growth = default_economic_growth
+        # Generate a new key to force re-render of all widgets
+        st.session_state.widget_key = str(uuid.uuid4())
 
     # Use session state to persist values between resets
-    start_date = st.sidebar.date_input("Start Date", value=st.session_state.get('start_date', default_start_date))
-    end_date = st.sidebar.date_input("End Date", value=st.session_state.get('end_date', default_end_date))
+    start_date = st.sidebar.date_input("Start Date", 
+                                       value=st.session_state.get('start_date', default_start_date),
+                                       key=f"start_date_{st.session_state.widget_key}")
+    end_date = st.sidebar.date_input("End Date", 
+                                     value=st.session_state.get('end_date', default_end_date),
+                                     key=f"end_date_{st.session_state.widget_key}")
     future_days = st.sidebar.slider("Days to predict in the future", 1, 60, 
-                                    value=st.session_state.get('future_days', default_future_days))
+                                    value=st.session_state.get('future_days', default_future_days),
+                                    key=f"future_days_{st.session_state.widget_key}")
     
     volatility_window = st.sidebar.slider("Volatility Window", 5, 50, 
-                                          value=st.session_state.get('volatility_window', default_volatility_window))
+                                          value=st.session_state.get('volatility_window', default_volatility_window),
+                                          key=f"volatility_window_{st.session_state.widget_key}")
     rsi_window = st.sidebar.slider("RSI Window", 5, 30, 
-                                   value=st.session_state.get('rsi_window', default_rsi_window))
+                                   value=st.session_state.get('rsi_window', default_rsi_window),
+                                   key=f"rsi_window_{st.session_state.widget_key}")
     sentiment_score = st.sidebar.slider("Market Sentiment (-1 to 1)", -1.0, 1.0, 
-                                        value=st.session_state.get('sentiment_score', default_sentiment_score), step=0.1)
+                                        value=st.session_state.get('sentiment_score', default_sentiment_score),
+                                        step=0.1,
+                                        key=f"sentiment_score_{st.session_state.widget_key}")
     interest_rate = st.sidebar.slider("Interest Rate (%)", 0.0, 10.0, 
-                                      value=st.session_state.get('interest_rate', default_interest_rate), step=0.1)
+                                      value=st.session_state.get('interest_rate', default_interest_rate),
+                                      step=0.1,
+                                      key=f"interest_rate_{st.session_state.widget_key}")
     economic_growth = st.sidebar.slider("Economic Growth (%)", -5.0, 10.0, 
-                                        value=st.session_state.get('economic_growth', default_economic_growth), step=0.1)
+                                        value=st.session_state.get('economic_growth', default_economic_growth),
+                                        step=0.1,
+                                        key=f"economic_growth_{st.session_state.widget_key}")
 
     # Update session state
     st.session_state.start_date = start_date
