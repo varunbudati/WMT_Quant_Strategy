@@ -94,6 +94,47 @@ def plot_results_with_future(df, historical_predictions, future_predictions, fut
     
     return fig
 
+def predict_future_with_ci(model, last_data, days, sentiment_score, interest_rate, economic_growth, confidence_level):
+    future_predictions = []
+    lower_bounds = []
+    upper_bounds = []
+    current_data = last_data.copy()
+    
+    for _ in range(days):
+        prediction = model.predict(current_data.reshape(1, -1))[0]
+        adjusted_prediction = adjust_predictions([prediction], sentiment_score, interest_rate, economic_growth)[0]
+        
+        # Calculate confidence interval
+        std_dev = np.std([tree.predict(current_data.reshape(1, -1))[0] for tree in model.estimators_])
+        margin = std_dev * confidence_level
+        
+        future_predictions.append(adjusted_prediction)
+        lower_bounds.append(adjusted_prediction - margin)
+        upper_bounds.append(adjusted_prediction + margin)
+        
+        current_data = np.roll(current_data, -1)
+        current_data[-3:] = [sentiment_score, interest_rate, economic_growth]
+        current_data[-4] = adjusted_prediction
+
+    return future_predictions, lower_bounds, upper_bounds
+
+def plot_results_with_future_and_ci(df, historical_predictions, future_predictions, future_dates, lower_bounds, upper_bounds):
+    fig, ax = plt.subplots(figsize=(15, 8))
+    ax.plot(df.index, df['Close'], label='Actual Price', color='blue')
+    ax.plot(df.index[-len(historical_predictions):], historical_predictions, label='Historical Predictions', color='green')
+    ax.plot(future_dates, future_predictions, label='Future Predictions', color='red', linestyle='--')
+    
+    ax.fill_between(future_dates, lower_bounds, upper_bounds, color='red', alpha=0.2, label='Confidence Interval')
+    
+    ax.set_title('Walmart Stock Price: Historical and Future Predictions with Confidence Interval')
+    ax.set_xlabel('Date')
+    ax.set_ylabel('Price')
+    ax.legend()
+    ax.axvline(x=df.index[-1], color='gray', linestyle='--')
+    ax.text(df.index[-1], ax.get_ylim()[1], 'Today', ha='right', va='top')
+    
+    return fig
+
 def main():
     st.title('Walmart Stock Analysis and Prediction for Pitch SEED')
     st.warning("Disclaimer: This is purely Quantitative and only done as an experiment")
@@ -108,6 +149,7 @@ def main():
     default_sentiment_score = 0.0
     default_interest_rate = 2.0
     default_economic_growth = 2.0
+    default_confidence_level = 1.0  # Default confidence level (1 standard deviation)
 
     # Initialize session state for widget keys if not exists
     if 'widget_key' not in st.session_state:
@@ -123,7 +165,7 @@ def main():
         st.session_state.sentiment_score = default_sentiment_score
         st.session_state.interest_rate = default_interest_rate
         st.session_state.economic_growth = default_economic_growth
-        # Generate a new key to force re-render of all widgets
+        st.session_state.confidence_level = default_confidence_level
         st.session_state.widget_key = str(uuid.uuid4())
 
     # Use session state to persist values between resets
@@ -155,6 +197,10 @@ def main():
                                         value=st.session_state.get('economic_growth', default_economic_growth),
                                         step=0.1,
                                         key=f"economic_growth_{st.session_state.widget_key}")
+    confidence_level = st.sidebar.slider("Confidence Interval (std dev)", 0.1, 3.0, 
+                                         value=st.session_state.get('confidence_level', default_confidence_level),
+                                         step=0.1,
+                                         key=f"confidence_level_{st.session_state.widget_key}")
 
     # Update session state
     st.session_state.start_date = start_date
@@ -165,6 +211,7 @@ def main():
     st.session_state.sentiment_score = sentiment_score
     st.session_state.interest_rate = interest_rate
     st.session_state.economic_growth = economic_growth
+    st.session_state.confidence_level = confidence_level
     
     if start_date < end_date:
         st.sidebar.success('Start date: `%s`\n\nEnd date:`%s`' % (start_date, end_date))
@@ -188,16 +235,23 @@ def main():
     st.write(f"Root Mean Squared Error: {rmse:.2f}")
     
     last_known_data = X.iloc[-1].values
-    future_predictions = predict_future(model, last_known_data, future_days, sentiment_score, interest_rate, economic_growth)
+    future_predictions, lower_bounds, upper_bounds = predict_future_with_ci(
+        model, last_known_data, future_days, sentiment_score, interest_rate, economic_growth, confidence_level
+    )
     future_dates = pd.date_range(start=walmart_df.index[-1] + timedelta(days=1), periods=future_days)
     
-    st.subheader('Historical Data and Future Predictions')
-    fig = plot_results_with_future(walmart_df, historical_predictions, future_predictions, future_dates)
+    st.subheader('Historical Data and Future Predictions with Confidence Interval')
+    fig = plot_results_with_future_and_ci(walmart_df, historical_predictions, future_predictions, future_dates, lower_bounds, upper_bounds)
     st.pyplot(fig)
     
     st.subheader('Recent Stock Data and Future Predictions')
     recent_data = walmart_df.tail()
-    future_df = pd.DataFrame({'Date': future_dates, 'Predicted Close': future_predictions})
+    future_df = pd.DataFrame({
+        'Date': future_dates, 
+        'Predicted Close': future_predictions,
+        'Lower Bound': lower_bounds,
+        'Upper Bound': upper_bounds
+    })
     future_df.set_index('Date', inplace=True)
     combined_df = pd.concat([recent_data, future_df])
     st.dataframe(combined_df)
