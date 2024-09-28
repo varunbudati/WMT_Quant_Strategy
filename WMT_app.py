@@ -28,7 +28,7 @@ def calculate_indicators(df, volatility_window, rsi_window):
     
     return df
 
-def prepare_features(df, sentiment_score):
+def prepare_features(df, sentiment_score, interest_rate, economic_growth):
     df['Target'] = df['Close'].shift(-1)
     features = ['Open', 'High', 'Low', 'Close', 'Volume', 'SMA_50', 'SMA_200', 'Volatility', 'RSI']
     X = df[features]
@@ -36,7 +36,11 @@ def prepare_features(df, sentiment_score):
     valid_data = X.notna().all(axis=1) & y.notna()
     X = X[valid_data]
     y = y[valid_data]
+    
+    # Add new factors as features
     X['Sentiment'] = sentiment_score
+    X['Interest_Rate'] = interest_rate
+    X['Economic_Growth'] = economic_growth
     
     return X, y
 
@@ -52,14 +56,26 @@ def evaluate_model(model, X_test, y_test):
     rmse = np.sqrt(mse)
     return rmse, predictions
 
-def predict_future(model, last_data, days=30):
+def adjust_predictions(predictions, sentiment_score, interest_rate, economic_growth):
+    sentiment_impact = 0.02 * sentiment_score
+    interest_rate_impact = -0.01 * (interest_rate - 2)
+    growth_impact = 0.005 * economic_growth
+    
+    total_impact = 1 + sentiment_impact + interest_rate_impact + growth_impact
+    adjusted_predictions = predictions * total_impact
+    
+    return adjusted_predictions
+
+def predict_future(model, last_data, days, sentiment_score, interest_rate, economic_growth):
     future_predictions = []
     current_data = last_data.copy()
     for _ in range(days):
         prediction = model.predict(current_data.reshape(1, -1))[0]
-        future_predictions.append(prediction)
+        adjusted_prediction = adjust_predictions([prediction], sentiment_score, interest_rate, economic_growth)[0]
+        future_predictions.append(adjusted_prediction)
         current_data = np.roll(current_data, -1)
-        current_data[-1] = prediction
+        current_data[-3:] = [sentiment_score, interest_rate, economic_growth]
+        current_data[-4] = adjusted_prediction
 
     return future_predictions
 
@@ -84,6 +100,7 @@ def main():
     start_date = st.sidebar.date_input("Start Date", pd.to_datetime("2023-01-01"))
     end_date = st.sidebar.date_input("End Date", pd.to_datetime("2024-12-31"))
     future_days = st.sidebar.slider("Days to predict in the future", 1, 60, 30)
+    
     volatility_window = st.sidebar.slider("Volatility Window", 5, 50, 20)
     rsi_window = st.sidebar.slider("RSI Window", 5, 30, 14)
     sentiment_score = st.sidebar.slider("Market Sentiment (-1 to 1)", -1.0, 1.0, 0.0, 0.1)
@@ -99,7 +116,7 @@ def main():
         walmart_df = fetch_stock_data('WMT', start_date, end_date)
     
     walmart_df = calculate_indicators(walmart_df, volatility_window, rsi_window)
-    X, y = prepare_features(walmart_df, sentiment_score)
+    X, y = prepare_features(walmart_df, sentiment_score, interest_rate, economic_growth)
     
     if len(X) < 10:
         st.error("Not enough valid data points. Please select a larger date range.")
@@ -112,7 +129,7 @@ def main():
     st.write(f"Root Mean Squared Error: {rmse:.2f}")
     
     last_known_data = X.iloc[-1].values
-    future_predictions = predict_future(model, last_known_data, days=future_days)
+    future_predictions = predict_future(model, last_known_data, future_days, sentiment_score, interest_rate, economic_growth)
     future_dates = pd.date_range(start=walmart_df.index[-1] + timedelta(days=1), periods=future_days)
     
     st.subheader('Historical Data and Future Predictions')
