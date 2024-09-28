@@ -97,15 +97,54 @@ def main():
     st.title('Walmart Stock Analysis and Prediction for Pitch SEED')
     st.warning("Disclaimer: This is purely Quantitative and only done as an experiment")
     st.sidebar.header('User Input Parameters')
-    start_date = st.sidebar.date_input("Start Date", pd.to_datetime("2023-01-01"))
-    end_date = st.sidebar.date_input("End Date", pd.to_datetime("2024-12-31"))
-    future_days = st.sidebar.slider("Days to predict in the future", 1, 60, 30)
+
+    # Define default values
+    default_start_date = pd.to_datetime("2023-01-01")
+    default_end_date = pd.to_datetime("2024-12-31")
+    default_future_days = 30
+    default_volatility_window = 20
+    default_rsi_window = 14
+    default_sentiment_score = 0.0
+    default_interest_rate = 2.0
+    default_economic_growth = 2.0
+
+    # Add reset button
+    if st.sidebar.button('Reset to Defaults'):
+        st.session_state.start_date = default_start_date
+        st.session_state.end_date = default_end_date
+        st.session_state.future_days = default_future_days
+        st.session_state.volatility_window = default_volatility_window
+        st.session_state.rsi_window = default_rsi_window
+        st.session_state.sentiment_score = default_sentiment_score
+        st.session_state.interest_rate = default_interest_rate
+        st.session_state.economic_growth = default_economic_growth
+
+    # Use session state to persist values between resets
+    start_date = st.sidebar.date_input("Start Date", value=st.session_state.get('start_date', default_start_date))
+    end_date = st.sidebar.date_input("End Date", value=st.session_state.get('end_date', default_end_date))
+    future_days = st.sidebar.slider("Days to predict in the future", 1, 60, 
+                                    value=st.session_state.get('future_days', default_future_days))
     
-    volatility_window = st.sidebar.slider("Volatility Window", 5, 50, 20)
-    rsi_window = st.sidebar.slider("RSI Window", 5, 30, 14)
-    sentiment_score = st.sidebar.slider("Market Sentiment (-1 to 1)", -1.0, 1.0, 0.0, 0.1)
-    interest_rate = st.sidebar.slider("Interest Rate (%)", 0.0, 10.0, 2.0, 0.1)
-    economic_growth = st.sidebar.slider("Economic Growth (%)", -5.0, 10.0, 2.0, 0.1)
+    volatility_window = st.sidebar.slider("Volatility Window", 5, 50, 
+                                          value=st.session_state.get('volatility_window', default_volatility_window))
+    rsi_window = st.sidebar.slider("RSI Window", 5, 30, 
+                                   value=st.session_state.get('rsi_window', default_rsi_window))
+    sentiment_score = st.sidebar.slider("Market Sentiment (-1 to 1)", -1.0, 1.0, 
+                                        value=st.session_state.get('sentiment_score', default_sentiment_score), step=0.1)
+    interest_rate = st.sidebar.slider("Interest Rate (%)", 0.0, 10.0, 
+                                      value=st.session_state.get('interest_rate', default_interest_rate), step=0.1)
+    economic_growth = st.sidebar.slider("Economic Growth (%)", -5.0, 10.0, 
+                                        value=st.session_state.get('economic_growth', default_economic_growth), step=0.1)
+
+    # Update session state
+    st.session_state.start_date = start_date
+    st.session_state.end_date = end_date
+    st.session_state.future_days = future_days
+    st.session_state.volatility_window = volatility_window
+    st.session_state.rsi_window = rsi_window
+    st.session_state.sentiment_score = sentiment_score
+    st.session_state.interest_rate = interest_rate
+    st.session_state.economic_growth = economic_growth
     
     if start_date < end_date:
         st.sidebar.success('Start date: `%s`\n\nEnd date:`%s`' % (start_date, end_date))
