@@ -62,9 +62,9 @@ def adjust_predictions(predictions, sentiment_score, interest_rate, economic_gro
     growth_impact = 0.005 * economic_growth
     
     total_impact = 1 + sentiment_impact + interest_rate_impact + growth_impact
-    adjusted_predictions = predictions * total_impact
+    adjusted_predictions = np.array(predictions) * total_impact
     
-    return adjusted_predictions
+    return adjusted_predictions.tolist()
 
 def predict_future(model, last_data, days, sentiment_score, interest_rate, economic_growth):
     future_predictions = []
